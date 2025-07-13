@@ -1,0 +1,6 @@
+runs
+tmp
+logs
+__pycache__
+chekpoints
+*.log
