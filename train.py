@@ -88,6 +88,7 @@ def train(
             episode_steps += 1
             total_num_steps += 1
             updates += 1
+            
             mask = 1 if episode_steps == max_episode_steps else float(not done)
 
             for idx, (state, next_state, policy_type, id) in enumerate(zip(obs['obs'], next_obs['obs'], obs['policy_name'], obs['id'])):
@@ -129,7 +130,7 @@ if __name__ == "__main__":
     gamma = 0.99
     tau = 0.05
     alpha = 0.12
-    target_update_interval = 10
+    target_update_interval = 300
     learning_rate = 3e-4
     icm_lr = 3e-4
     hidden_size = [512, 512]

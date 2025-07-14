@@ -125,6 +125,7 @@ class MultiAgentSAC:
             f"{GREEN}PredictiveModel on: {next(self.predictive_model.parameters()).device}"
             f" | Critic on: {next(self.critic.parameters()).device}{RESET}"
         )
+    
     def select_action(self, agent_name, state):
         return self.policies[agent_name].select_action(state, self.evaluate)
 
@@ -143,7 +144,7 @@ class MultiAgentSAC:
 
         # Calculate prediction loss
         prediction_error = F.mse_loss(predicted_next_state, next_state_batch)
-        prediction_error_no_reduction = F.mse_loss(predicted_next_state, next_state_batch, reduction = 'none')
+        prediction_error_no_reduction = F.mse_loss(predicted_next_state, next_state_batch, reduce = False)
         
         scaled_intrinsic_reward = prediction_error_no_reduction.mean(dim = 1)
         scaled_intrinsic_reward = self.exploration_scaling_factor * torch.reshape(scaled_intrinsic_reward, (memory.batch_size, 1))
@@ -157,9 +158,9 @@ class MultiAgentSAC:
             
             qf1_next_target, qf2_next_target = self.critic_target( next_state_batch, next_state_action )
             
-            min_qf_next_target = (torch.min(qf1_next_target, qf2_next_target) - self.alpha * next_state_log_pi)
+            min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.alpha * next_state_log_pi
             
-            next_q_value = reward_batch + (1 - mask_batch) * self.gamma * min_qf_next_target
+            next_q_value = reward_batch + mask_batch * self.gamma * min_qf_next_target
 
         qf1, qf2 = self.critic(state_batch, action_batch)
         qf1_loss = F.mse_loss(qf1, next_q_value)
@@ -198,7 +199,6 @@ class MultiAgentSAC:
         self.critics_counter += 1
 
         if self.critics_counter % self.target_update_interval == 0 and self.critics_counter > 0:
-            print(f"{GREEN}Soft Update Implemented{RESET}")
             soft_update(self.critic_target, self.critic, self.tau)
         
         

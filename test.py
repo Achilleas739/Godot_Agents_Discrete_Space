@@ -35,7 +35,7 @@ def test(
                 action = agent.select_action(id, state)
 
                 actions.append(np.array(action))
-            print("Actions ",actions)
+
             next_obs, rewards, done_arr, _ = env.step(np.array(actions))
             done = bool(done_arr.any())
             episode_steps += 1
