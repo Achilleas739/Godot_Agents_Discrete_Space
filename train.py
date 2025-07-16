@@ -1,5 +1,5 @@
 import numpy as np
-from ActorCriticICM import MultiAgentSAC
+from ActorCriticICM import MultiAgentSAC, AgentPolicy
 from buffer import ReplayBuffer
 from Wrapers import StableBaselinesGodotEnv
 
@@ -15,7 +15,6 @@ def train(
     env,
     agents: dict,
     episodes=1000,
-    batch_size=64,
     max_episode_steps=300,
     warmup=20,
     use_checkpoints = False
@@ -39,10 +38,11 @@ def train(
             for state, policy_type, id in zip(obs['obs'], obs['policy_name'], obs['id']):
                 
                 agent : MultiAgentSAC = agents[policy_type]
-                memory : ReplayBuffer = agent.policies[id].memory
+                actor: AgentPolicy = agent.policies[id]
+                memory : ReplayBuffer = actor.memory
                 
-
-                if warmup > total_num_steps:
+                
+                if warmup > actor.actor_steps():
                     action = env.action_space.sample()
 
                 else:
@@ -129,12 +129,12 @@ if __name__ == "__main__":
     updates_per_step = 1
     gamma = 0.99
     tau = 0.05
-    alpha = 0.12
-    target_update_interval = 300
+    alpha = 0.1
+    target_update_interval = 100
     learning_rate = 3e-4
     icm_lr = 3e-4
     hidden_size = [512, 512]
-    exploration_scaling_factor = 1
+    exploration_scaling_factor = 1.5
     max_episode_steps = 300
     action_repeat = 4
     env_name = "Godot_Chase_Phase1"

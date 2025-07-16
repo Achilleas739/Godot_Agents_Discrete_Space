@@ -29,7 +29,8 @@ class AgentPolicy:
         self.name = name
         self.device = device
         self.reward = 0
-        self.memory = None
+        self.memory : ReplayBuffer
+        self.step_counter = 0
         self.policy = Actor(
             num_inputs = num_inputs,
             num_actions = action_space.shape[0],
@@ -38,18 +39,22 @@ class AgentPolicy:
             name = "actor_network_" + str(name),
         ).to(self.device)
         self.optimizer = Adam(self.policy.parameters(), lr=lr)
-
-
+    
+    
     def select_action(self, state, evaluate=False):
         state = torch.FloatTensor(state).to(self.device).unsqueeze(0)
-
+        
         if evaluate is False:
             action, _, _ = self.policy.sample(state)
         else:
             _, _, action = self.policy.sample(state)
-
+        
         return action.detach().cpu().numpy()[0]
-
+    
+    
+    def actor_steps(self):
+        self.step_counter += 1
+        return self.step_counter
 
 
 
@@ -123,7 +128,7 @@ class MultiAgentSAC:
         
         print(
             f"{GREEN}PredictiveModel on: {next(self.predictive_model.parameters()).device}"
-            f" | Critic on: {next(self.critic.parameters()).device}{RESET}"
+            f"Critic on: {next(self.critic.parameters()).device}{RESET}"
         )
     
     def select_action(self, agent_name, state):
@@ -148,10 +153,8 @@ class MultiAgentSAC:
         
         scaled_intrinsic_reward = prediction_error_no_reduction.mean(dim = 1)
         scaled_intrinsic_reward = self.exploration_scaling_factor * torch.reshape(scaled_intrinsic_reward, (memory.batch_size, 1))
-        
         reward_batch = reward_batch + scaled_intrinsic_reward
-        
-        
+
         with torch.no_grad():
             
             next_state_action, next_state_log_pi, _ = self.policies[agent_name].policy.sample( next_state_batch )

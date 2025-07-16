@@ -72,7 +72,7 @@ if __name__ == "__main__":
     learning_rate = 3e-4
     icm_lr = 1e-4
     hidden_size = [512, 512]
-    exploration_scaling_factor = 1.5
+    exploration_scaling_factor = 0.5
     max_episode_steps = 300
     action_repeat = 4
     env_name = "Godot_Chase_Phase1"
