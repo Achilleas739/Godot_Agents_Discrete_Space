@@ -20,7 +20,6 @@ def train(
     use_checkpoints = False
 ):
     total_num_steps = 0
-    updates = 0
     
     if use_checkpoints:
         for agent in agents.values():
@@ -83,21 +82,24 @@ def train(
                     "loss/Actor_"+f'{id}', policy_loss, total_num_steps
                     )
 
-            next_obs, rewards, done_arr, _ = env.step(np.array(actions))
-            done = bool(done_arr.any())
+            next_obs, rewards, dones, _ = env.step(np.array(actions))
             episode_steps += 1
             total_num_steps += 1
-            updates += 1
             
-            mask = 1 if episode_steps == max_episode_steps else float(not done)
+            
+            if episode_steps == max_episode_steps:
+                masks = np.ones_like(dones, dtype=np.float32)
+            else:
+                masks = np.logical_not(dones).astype(np.float32)
 
             for idx, (state, next_state, policy_type, id) in enumerate(zip(obs['obs'], next_obs['obs'], obs['policy_name'], obs['id'])):
                 agent = agents[policy_type]
                 memory = agent.policies[id].memory
 
                 reward = rewards[idx]
-                memory.store_transition(state, actions[idx], reward, next_state, mask)
+                memory.store_transition(state, actions[idx], reward, next_state, masks[idx])
                 agent.policies[id].reward += reward
+
 
         for agent in agents.values():
             policy_type_rewards = agent.get_rewards()
@@ -130,9 +132,9 @@ if __name__ == "__main__":
     gamma = 0.99
     tau = 0.05
     alpha = 0.1
-    target_update_interval = 100
+    target_update_interval = 10
     learning_rate = 3e-4
-    icm_lr = 3e-4
+    icm_lr = 1e-4
     hidden_size = [512, 512]
     exploration_scaling_factor = 1.5
     max_episode_steps = 300

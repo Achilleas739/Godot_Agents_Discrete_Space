@@ -78,8 +78,7 @@ class StableBaselinesGodotEnv(VecEnv):
             obs, reward, term, trunc, info = self.envs[i].step_recv()
             all_obs.extend(obs)
             all_rewards.extend(reward)
-            all_term.extend(term)
-            all_trunc.extend(trunc)
+            all_term.extend(term or trunc)
             all_info.extend(info)
 
         # Convert list of dictionaries to dictionary of lists

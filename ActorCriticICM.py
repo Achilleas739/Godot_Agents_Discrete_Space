@@ -146,20 +146,30 @@ class MultiAgentSAC:
         mask_batch = torch.FloatTensor(mask_batch).to(self.device).unsqueeze(1)
         
         predicted_next_state = self.predictive_model(state_batch, action_batch)
-
+        
         # Calculate prediction loss
         prediction_error = F.mse_loss(predicted_next_state, next_state_batch)
-        prediction_error_no_reduction = F.mse_loss(predicted_next_state, next_state_batch, reduce = False)
+        prediction_error_no_reduction = F.mse_loss(predicted_next_state, next_state_batch, reduction= 'none')
         
         scaled_intrinsic_reward = prediction_error_no_reduction.mean(dim = 1)
         scaled_intrinsic_reward = self.exploration_scaling_factor * torch.reshape(scaled_intrinsic_reward, (memory.batch_size, 1))
+        
         reward_batch = reward_batch + scaled_intrinsic_reward
+
+        '''
+        self.writer.add_scalar("reward/extrinsic_mean", reward_batch.mean().item() - scaled_intrinsic_reward.mean().item(), self.critics_counter)
+        self.writer.add_scalar("reward/intrinsic_mean", scaled_intrinsic_reward.mean().item(), self.critics_counter)
+        self.writer.add_scalar("reward/total_mean", reward_batch.mean().item(), self.critics_counter)
+        self.writer.add_scalar("reward/intrinsic_std", scaled_intrinsic_reward.std().item(), self.critics_counter)
+        self.writer.add_scalar("reward/extrinsic_std", (reward_batch - scaled_intrinsic_reward).std().item(), self.critics_counter)
+        '''
+
 
         with torch.no_grad():
             
-            next_state_action, next_state_log_pi, _ = self.policies[agent_name].policy.sample( next_state_batch )
+            next_state_action, next_state_log_pi, _ = self.policies[agent_name].policy.sample(next_state_batch)
             
-            qf1_next_target, qf2_next_target = self.critic_target( next_state_batch, next_state_action )
+            qf1_next_target, qf2_next_target = self.critic_target(next_state_batch, next_state_action)
             
             min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.alpha * next_state_log_pi
             
@@ -169,33 +179,33 @@ class MultiAgentSAC:
         qf1_loss = F.mse_loss(qf1, next_q_value)
         qf2_loss = F.mse_loss(qf2, next_q_value)
         qf_loss = qf1_loss + qf2_loss
-        # Check device of parameters before optimizer step
 
         # Update Critic network
         self.critic_optim.zero_grad()
         qf_loss.backward()
-
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0)
         self.critic_optim.step()
 
         # Update the predictive network
         self.predictive_model_optim.zero_grad()
         prediction_error.backward()
-        
+        torch.nn.utils.clip_grad_norm_(self.predictive_model.parameters(), max_norm=1.0)
         self.predictive_model_optim.step()
 
         pi, log_pi, _ = self.policies[agent_name].policy.sample(state_batch)
         qf1_pi, qf2_pi = self.critic(state_batch, pi)
         min_qf_pi = torch.min(qf1_pi, qf2_pi)
+        
         policy_loss = ((self.alpha * log_pi) - min_qf_pi).mean()
 
         # Update the policy network
         self.policies[agent_name].optimizer.zero_grad()
         policy_loss.backward()
-        
+        torch.nn.utils.clip_grad_norm_(self.policies[agent_name].policy.parameters(), max_norm=1.0)
         self.policies[agent_name].optimizer.step()
 
 
-        alpha_loss = torch.tensor(0.0).to(self.device)
+        alpha_loss = torch.tensor(0.).to(self.device)
         alpha_tlogs = torch.tensor(self.alpha)
 
 
@@ -203,7 +213,6 @@ class MultiAgentSAC:
 
         if self.critics_counter % self.target_update_interval == 0 and self.critics_counter > 0:
             soft_update(self.critic_target, self.critic, self.tau)
-        
         
 
         return (

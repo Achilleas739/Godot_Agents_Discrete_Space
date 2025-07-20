@@ -24,8 +24,8 @@ class ReplayBuffer():
         self.state_memory[index] = state.astype(np.float32)
         self.next_state_memory[index] = next_state.astype(np.float32)
         self.action_memory[index] = action.astype(np.float32)
-        self.reward_memory[index] = reward.astype(np.float32)
-        self.terminal_memory[index] = done
+        self.reward_memory[index] = np.float32(reward)  # was : self.reward_memory[index] = reward.astype(np.float32)
+        self.terminal_memory[index] = done.astype(np.float32)
 
         self.mem_ctr += 1
 
