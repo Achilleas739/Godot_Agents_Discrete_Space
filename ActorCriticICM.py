@@ -166,15 +166,12 @@ class MultiAgentSAC:
 
 
         with torch.no_grad():
-            
             next_state_action, next_state_log_pi, _ = self.policies[agent_name].policy.sample(next_state_batch)
-            
             qf1_next_target, qf2_next_target = self.critic_target(next_state_batch, next_state_action)
-            
-            min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.alpha * next_state_log_pi
-            
+            min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.alpha * next_state_log_pi            
             next_q_value = reward_batch + mask_batch * self.gamma * min_qf_next_target
-
+        
+        
         qf1, qf2 = self.critic(state_batch, action_batch)
         qf1_loss = F.mse_loss(qf1, next_q_value)
         qf2_loss = F.mse_loss(qf2, next_q_value)
@@ -183,13 +180,11 @@ class MultiAgentSAC:
         # Update Critic network
         self.critic_optim.zero_grad()
         qf_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=1.0)
         self.critic_optim.step()
 
         # Update the predictive network
         self.predictive_model_optim.zero_grad()
         prediction_error.backward()
-        torch.nn.utils.clip_grad_norm_(self.predictive_model.parameters(), max_norm=1.0)
         self.predictive_model_optim.step()
 
         pi, log_pi, _ = self.policies[agent_name].policy.sample(state_batch)
@@ -201,7 +196,6 @@ class MultiAgentSAC:
         # Update the policy network
         self.policies[agent_name].optimizer.zero_grad()
         policy_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.policies[agent_name].policy.parameters(), max_norm=1.0)
         self.policies[agent_name].optimizer.step()
 
 

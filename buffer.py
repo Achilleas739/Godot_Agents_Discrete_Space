@@ -14,18 +14,18 @@ class ReplayBuffer():
         self.batch_size = batch_size
 
     def can_sample(self):
-        if self.mem_ctr > (self.batch_size) :
+        if self.mem_ctr > (self.batch_size) * 5:
             return True
         return False
 
     def store_transition(self, state, action, reward, next_state, done):
         index = self.mem_ctr % self.mem_size
 
-        self.state_memory[index] = state.astype(np.float32)
-        self.next_state_memory[index] = next_state.astype(np.float32)
-        self.action_memory[index] = action.astype(np.float32)
-        self.reward_memory[index] = np.float32(reward)  # was : self.reward_memory[index] = reward.astype(np.float32)
-        self.terminal_memory[index] = done.astype(np.float32)
+        self.state_memory[index] = state
+        self.next_state_memory[index] = next_state
+        self.action_memory[index] = action
+        self.reward_memory[index] = reward
+        self.terminal_memory[index] = done
 
         self.mem_ctr += 1
 
