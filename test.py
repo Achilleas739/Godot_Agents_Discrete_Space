@@ -61,19 +61,19 @@ def test(
 if __name__ == "__main__":
     # Hyper-parameters
     replay_buffer_size = int(1e6)
-    episodes = 10
-    warmup = 0
-    batch_size = 64
+    episodes = 1000
+    warmup = 20
+    batch_size = 128
     updates_per_step = 1
     gamma = 0.99
     tau = 0.05
-    alpha = 0.12
+    alpha = 0.2
     target_update_interval = 10
     learning_rate = 3e-4
-    icm_lr = 1e-4
+    icm_lr = 3e-4
     hidden_size = [512, 512]
-    exploration_scaling_factor = 0.5
-    max_episode_steps = 50
+    exploration_scaling_factor = 1.5
+    max_episode_steps = 100
     action_repeat = 4
     env_name = "Godot_Chase_Phase1"
     Path = r"C:\Users\cyach\OneDrive\Desktop\ML\Godot-RL-MultiAgent\Multi_agent_1.exe"
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         seed=0,
         action_repeat=action_repeat,
         n_parallel=1,
-        speed_up=0,
+        speed_up=1,
         max_episode_steps=max_episode_steps * action_repeat,
     )
 

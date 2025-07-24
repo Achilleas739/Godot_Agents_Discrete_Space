@@ -4,7 +4,8 @@ from buffer import ReplayBuffer
 from Wrapers import StableBaselinesGodotEnv
 
 
-
+GREEN = "\033[92m"
+RESET = "\033[0m"
 
 
 
@@ -25,7 +26,7 @@ def train(
         for agent in agents.values():
             agent.load()
     
-    print("STARTED TRAINING")
+    print(f"{GREEN}STARTED TRAINING{RESET}")
     for i_episode in range(episodes):
         
         episode_steps = 0
@@ -129,13 +130,13 @@ if __name__ == "__main__":
     replay_buffer_size = int(1e6)
     episodes = 1000
     warmup = 20
-    batch_size = 64
+    batch_size = 128
     updates_per_step = 1
     gamma = 0.99
     tau = 0.05
-    alpha = 0.12
+    alpha = 0.2
     target_update_interval = 10
-    learning_rate = 3e-4
+    learning_rate = [3e-4, 1e-4]
     icm_lr = 3e-4
     hidden_size = [512, 512]
     exploration_scaling_factor = 1.5
@@ -148,11 +149,11 @@ if __name__ == "__main__":
     env = StableBaselinesGodotEnv(
         env_path=Path,
         port=11008,
-        show_window=True,
+        show_window=False,
         seed=0,
         action_repeat=action_repeat,
         n_parallel=1,
-        speed_up=1,
+        speed_up=0,
         max_episode_steps=max_episode_steps * action_repeat,
     )
     
@@ -199,9 +200,9 @@ if __name__ == "__main__":
             tau = tau,
             alpha = alpha,
             hidden_size = hidden_size[idx],
-            sac_lr = learning_rate,
+            sac_lr = learning_rate[idx],
             icm_lr = icm_lr,
-            agent_lr = learning_rate,
+            agent_lr = learning_rate[idx],
             target_update_interval = target_update_interval,
             exploration_scaling_factor = exploration_scaling_factor,
             policy_name = type,

@@ -7,7 +7,7 @@ from buffer import ReplayBuffer
 from torch.utils.tensorboard import SummaryWriter
 import datetime
 import torch_directml
-
+import numpy as np
 
 GREEN = "\033[92m"
 RESET = "\033[0m"
@@ -119,6 +119,11 @@ class MultiAgentSAC:
         self.predictive_model = PredictiveModel(num_inputs, action_dim, hidden_size).to(self.device)
         self.predictive_model_optim = Adam(self.predictive_model.parameters(), lr=icm_lr)
         
+        #Initialize Automatic Entropy
+        self.target_entropy = -np.prod(action_space.shape).item()
+        self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+        self.alpha_optim = Adam([self.log_alpha], lr=sac_lr)
+        
         #Initialize Actor models
         self.policies = {}
         
@@ -127,7 +132,7 @@ class MultiAgentSAC:
             self.policies[name] = agent_policy
         
         print(
-            f"{GREEN}PredictiveModel on: {next(self.predictive_model.parameters()).device}"
+            f"{GREEN}PredictiveModel on: {next(self.predictive_model.parameters()).device}\n"
             f"Critic on: {next(self.critic.parameters()).device}{RESET}"
         )
     
@@ -198,17 +203,23 @@ class MultiAgentSAC:
         policy_loss.backward()
         self.policies[agent_name].optimizer.step()
 
-
+        '''
         alpha_loss = torch.tensor(0.).to(self.device)
-        alpha_tlogs = torch.tensor(self.alpha)
-
+        '''
+        
+        alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
+        self.alpha_optim.zero_grad()
+        alpha_loss.backward()
+        self.alpha_optim.step()
+        self.alpha = self.log_alpha.exp()
+        alpha_tlogs = self.alpha.clone().detach()
 
         self.critics_counter += 1
-
+        
         if self.critics_counter % self.target_update_interval == 0 and self.critics_counter > 0:
             soft_update(self.critic_target, self.critic, self.tau)
         
-
+        
         return (
             qf1_loss.item(),
             qf2_loss.item(),
