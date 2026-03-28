@@ -8,3 +8,5 @@ __pycache__
 *.pck
 *.exe
 *.x86_64
+.export/
+*.TMP
