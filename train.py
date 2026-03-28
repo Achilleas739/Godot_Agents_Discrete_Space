@@ -249,7 +249,7 @@ if __name__ == "__main__":
     hierarchical = False
 
     env = StableBaselinesGodotEnv(
-        env_path=None,
+        env_path=Path,
         port=11008,
         show_window=False,
         seed=0,
