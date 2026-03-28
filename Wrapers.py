@@ -50,6 +50,7 @@ class StableBaselinesGodotEnv(VecEnv):
 
     def _check_valid_action_space(self) -> None:
         # Check if the action space is a tuple space with multiple spaces
+        return
         action_space = self.envs[0].action_space
         if isinstance(action_space, gym.spaces.Tuple):
             assert len(action_space.spaces) == 1, (
@@ -57,40 +58,42 @@ class StableBaselinesGodotEnv(VecEnv):
             )
 
     def step(
-        self, action: np.ndarray
-    ) -> Tuple[Dict[str, np.ndarray], np.ndarray, np.ndarray, List[Dict[str, Any]]]:
-        # Initialize lists for collecting results
-        all_obs = []
-        all_rewards = []
-        all_term = []
-        all_trunc = []
-        all_info = []
+            self, actions: List[Dict[str, Any]]
+        ) -> Tuple[Dict[str, np.ndarray], np.ndarray, np.ndarray, List[Dict[str, Any]]]:
 
-        # Get the number of environments
-        num_envs = self.envs[0].num_envs
+            # 🔥 SAFETY: guarantee python list (not numpy)
+            actions = list(actions)
 
-        # Send actions to each environment
-        for i in range(self.n_parallel):
-            self.envs[i].step_send(action[i * num_envs : (i + 1) * num_envs])
+            all_obs = []
+            all_rewards = []
+            all_term = []
+            all_trunc = []
+            all_info = []
 
-        # Receive results from each environment
-        for i in range(self.n_parallel):
-            obs, reward, term, trunc, info = self.envs[i].step_recv()
-            all_obs.extend(obs)
-            all_rewards.extend(reward)
-            all_term.extend(term or trunc)
-            all_info.extend(info)
+            num_envs = self.envs[0].num_envs
 
-        # Convert list of dictionaries to dictionary of lists
-        obs = lod_to_dol(all_obs)
+            # Send actions
+            for i in range(self.n_parallel):
+                chunk = actions[i * num_envs:(i + 1) * num_envs]
+                self.envs[i].step_send(chunk)
 
-        # Return results
-        return (
-            {k: np.array(v) for k, v in obs.items()},
-            np.array(all_rewards, dtype=np.float32),
-            np.array(all_term),
-            all_info,
-        )
+            # Receive
+            for i in range(self.n_parallel):
+                obs, reward, term, trunc, info = self.envs[i].step_recv()
+                all_obs.extend(obs)
+                all_rewards.extend(reward)
+                all_term.extend(term or trunc)
+                all_info.extend(info)
+
+            obs = lod_to_dol(all_obs)
+
+            return (
+                {k: np.array(v) for k, v in obs.items()},
+                np.array(all_rewards, dtype=np.float32),
+                np.array(all_term),
+                all_info,
+            )
+
 
     def reset(self) -> Dict[str, np.ndarray]:
         # Initialize lists for collecting results

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Normal
+from torch.distributions import Categorical
 import os
 
 LOG_SIG_MAX = 2
@@ -17,52 +17,53 @@ def weights_init(m):
     
     
 class Critic(nn.Module):
-  def __init__(
-              self,
-               num_inputs,
-               num_actions,
-               hidden_dim,
-               checkpoint_dir = 'checkpoints',
-               name = 'critic_network'
-               ):
-    
-    super(Critic, self).__init__()
-    
-    #Critic1 Architecture
-    self.linear1 = nn.Linear(num_inputs + num_actions, hidden_dim)
-    self.linear2 = nn.Linear(hidden_dim, hidden_dim)
-    self.linear3 = nn.Linear(hidden_dim, 1)
-    #Critic2 Architecture
-    self.linear4 = nn.Linear(num_inputs + num_actions, hidden_dim)
-    self.linear5 = nn.Linear(hidden_dim, hidden_dim)
-    self.linear6 = nn.Linear(hidden_dim, 1)
-    
-    self.name = name
-    self.checkpoint_dir = checkpoint_dir
-    self.checkpoint_file = os.path.join(self.checkpoint_dir, name+'sac')
-    
-    self.apply(weights_init)
-    
-    
-  def forward(self, state, action):
-    
-    xu = torch.cat([state, action], 1)
-    #Forward for Critic1
-    x1 = F.relu(self.linear1(xu))
-    x1 = F.relu(self.linear2(x1))
-    x1 = self.linear3(x1)
-    #Forward for Critic2
-    x2 = F.relu(self.linear4(xu))
-    x2 = F.relu(self.linear5(x2))
-    x2 = self.linear6(x2)
-    
-    return x1, x2
-  
-  def save_checkpoint(self, path):
-    torch.save(self.state_dict(), path)
-    
-  def load_checkpoint(self, path):
-    self.load_state_dict(torch.load(path))
+    def __init__(
+        self,
+        num_inputs,
+        num_actions,
+        hidden_dim,
+        checkpoint_dir="checkpoints",
+        name="critic_network",
+    ):
+        super(Critic, self).__init__()
+
+        # Critic1 Architecture
+        self.linear1 = nn.Linear(num_inputs + num_actions, hidden_dim)
+        self.linear2 = nn.Linear(hidden_dim, hidden_dim)
+        self.linear3 = nn.Linear(hidden_dim, hidden_dim)
+        self.linear4 = nn.Linear(hidden_dim, 1)
+        # Critic2 Architecture
+        self.linear5 = nn.Linear(num_inputs + num_actions, hidden_dim)
+        self.linear6 = nn.Linear(hidden_dim, hidden_dim)
+        self.linear7 = nn.Linear(hidden_dim, hidden_dim)
+        self.linear8 = nn.Linear(hidden_dim, 1)
+
+        self.name = name
+        self.checkpoint_dir = checkpoint_dir
+        self.checkpoint_file = os.path.join(self.checkpoint_dir, name + "sac")
+
+        self.apply(weights_init)
+
+    def forward(self, state, action):
+        xu = torch.cat([state, action], 1)
+        # Forward for Critic1
+        x1 = F.relu(self.linear1(xu))
+        x1 = F.relu(self.linear2(x1))
+        x1 = F.relu(self.linear3(x1))
+        x1 = self.linear4(x1)
+        # Forward for Critic2
+        x2 = F.relu(self.linear5(xu))
+        x2 = F.relu(self.linear6(x2))
+        x2 = F.relu(self.linear7(x2))
+        x2 = self.linear8(x2)
+
+        return x1, x2
+
+    def save_checkpoint(self, path):
+        torch.save(self.state_dict(), path)
+
+    def load_checkpoint(self, path):
+        self.load_state_dict(torch.load(path))
     
     
 class Actor(nn.Module):
@@ -72,7 +73,8 @@ class Actor(nn.Module):
     
     self.linear1 = nn.Linear(num_inputs, hidden_dim)
     self.linear2 = nn.Linear(hidden_dim, hidden_dim)
-    self.mean_linear = nn.Linear(hidden_dim, num_actions)
+    self.linear3 = nn.Linear(hidden_dim, hidden_dim)
+    self.out = nn.Linear(hidden_dim, num_actions)
     
     self.log_std_linear = nn.Linear(hidden_dim, num_actions)
     
@@ -82,14 +84,6 @@ class Actor(nn.Module):
     
     self.apply(weights_init)
     
-    if action_space is None:
-      self.action_scale = torch.tensor(1.)
-      self.action_bias = torch.tensor(0.)
-    
-    else:
-      self.action_scale = torch.FloatTensor((action_space.high - action_space.low) / 2.)
-      self.action_bias = torch.FloatTensor((action_space.high + action_space.low) / 2.)
-      
       
   def save_checkpoint(self, path):
     torch.save(self.state_dict(), path)
@@ -102,31 +96,20 @@ class Actor(nn.Module):
   def forward(self, state):
     x = F.relu(self.linear1(state))
     x = F.relu(self.linear2(x))
-    mean = self.mean_linear(x)
-    log_std = self.log_std_linear(x)
-    log_std = torch.clamp(log_std, min = LOG_SIG_MIN, max = LOG_SIG_MAX)
+    x = F.relu(self.linear3(x))
+    out = self.out(x)
     
-    return mean, log_std
+    return out
   
   
   def sample(self, state):
-    mean, log_std = self.forward(state)
-    std = log_std.exp()
-    normal = Normal(mean,std)
-    x_t = normal.rsample()
-    y_t = torch.tanh(x_t)
-    action = y_t * self.action_scale + self.action_bias
-    log_prob = normal.log_prob(x_t)
-    
-    log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + epsilon)
-    log_prob = log_prob.sum(1, keepdim = True)
-    mean = torch.tanh(mean) * self.action_scale + self.action_bias
-    return action, log_prob, mean
+    out = self.forward(state)
+    dist = Categorical(logits=out)
+    action = dist.sample()
+    return action
   
   
   def to(self, device):
-    self.action_scale = self.action_scale.to(device)
-    self.action_bias = self.action_bias.to(device)
     return super(Actor, self).to(device)
   
   

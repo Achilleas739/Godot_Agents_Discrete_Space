@@ -1,6 +1,5 @@
 import numpy as np
 from ActorCriticICM import MultiAgentSAC
-from buffer import ReplayBuffer
 from Wrapers import StableBaselinesGodotEnv
 
 GREEN = "\033[92m"
@@ -32,21 +31,23 @@ def test(
             ):
                 agent: MultiAgentSAC = agents[policy_type]
 
-                action = agent.select_action(id, state)
-
-                actions.append(np.array(action))
+                action, _ = agent.select_action(state)
+                action_dict = {"movement": int(action[0])}
+                actions.append(action_dict)
 
             next_obs, rewards, done_arr, _ = env.step(np.array(actions))
             done = bool(done_arr.any())
             episode_steps += 1
 
+            ids = [str(i) for i in range(len(obs["id"]))]
+
             for idx, (policy_type, id) in enumerate(
-                zip(obs["policy_name"], obs["id"])
+                zip(obs["policy_name"], ids)
             ):
                 agent = agents[policy_type]
 
                 reward = rewards[idx]
-                agent.policies[id].reward += reward
+                agent.rewards[id] = agent.rewards.get(id, 0) + reward
             
             obs = next_obs
             
@@ -63,20 +64,20 @@ if __name__ == "__main__":
     replay_buffer_size = int(1e6)
     episodes = 1000
     warmup = 20
-    batch_size = 128
+    batch_size = 256
     updates_per_step = 1
     gamma = 0.99
-    tau = 0.05
+    tau = 0.005
     alpha = 0.2
     target_update_interval = 10
     learning_rate = 3e-4
     icm_lr = 3e-4
-    hidden_size = [512, 512]
+    hidden_size = [128, 128]
     exploration_scaling_factor = 1.5
-    max_episode_steps = 100
+    max_episode_steps = 1000
     action_repeat = 4
     env_name = "Godot_Chase_Phase1"
-    Path = r"C:\Users\cyach\OneDrive\Desktop\ML\Godot-RL-MultiAgent\Multi_agent_1.exe"
+    Path = r"C:\Users\cyach\OneDrive\Desktop\ML\Godot-discrete-ActionSpace\movement_test.exe"
     Test = True
     
     env = StableBaselinesGodotEnv(
@@ -113,11 +114,8 @@ if __name__ == "__main__":
     agents = dict()
 
     for idx, type in enumerate(policy_types):
-        agent_ids = [j for j in range(policy_counts[type])]
-
 
         agent = MultiAgentSAC(
-            agent_names=agent_ids,
             num_inputs=observation_sizes,
             action_space=action_spaces,
             gamma=gamma,
@@ -130,20 +128,8 @@ if __name__ == "__main__":
             target_update_interval=target_update_interval,
             exploration_scaling_factor=exploration_scaling_factor,
             policy_name=type,
-            test = True
+            test = False
         )
-
         agents[type] = agent
-
-        for id in agent_ids:
-            memory = ReplayBuffer(
-                replay_buffer_size,
-                input_shape=observation_sizes,
-                n_actions=env.action_space.shape[0],
-                batch_size=batch_size,
-            )
-
-            agent.policies[id].memory = memory
-
-
+    
     test(env, agents)
